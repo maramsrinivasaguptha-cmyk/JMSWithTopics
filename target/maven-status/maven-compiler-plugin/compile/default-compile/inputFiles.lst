@@ -1,0 +1,10 @@
+C:\Users\DELL\work\JMSWithTopics\src\main\java\com\ems\jmsservice\config\EmbeddedJmsConfig.java
+C:\Users\DELL\work\JMSWithTopics\src\main\java\com\ems\jmsservice\controller\JmsApiController.java
+C:\Users\DELL\work\JMSWithTopics\src\main\java\com\ems\jmsservice\JmsServiceApplication.java
+C:\Users\DELL\work\JMSWithTopics\src\main\java\com\ems\jmsservice\model\Destination.java
+C:\Users\DELL\work\JMSWithTopics\src\main\java\com\ems\jmsservice\model\JmsBridge.java
+C:\Users\DELL\work\JMSWithTopics\src\main\java\com\ems\jmsservice\model\MessageLog.java
+C:\Users\DELL\work\JMSWithTopics\src\main\java\com\ems\jmsservice\repository\EmsConfigRepository.java
+C:\Users\DELL\work\JMSWithTopics\src\main\java\com\ems\jmsservice\service\EmsEventBroadcaster.java
+C:\Users\DELL\work\JMSWithTopics\src\main\java\com\ems\jmsservice\service\JmsBridgeService.java
+C:\Users\DELL\work\JMSWithTopics\src\main\java\com\ems\jmsservice\service\JmsDestinationService.java

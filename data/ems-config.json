@@ -1,0 +1,30 @@
+{
+  "destinations" : [ {
+    "name" : "Queue.A",
+    "type" : "QUEUE",
+    "createdAt" : 1781111600.354412200
+  }, {
+    "name" : "Queue.B",
+    "type" : "QUEUE",
+    "createdAt" : 1781111600.354412200
+  }, {
+    "name" : "Topic.X",
+    "type" : "TOPIC",
+    "createdAt" : 1781111600.354412200
+  } ],
+  "bridges" : [ {
+    "id" : 1,
+    "sourceTopic" : "Topic.X",
+    "targetQueue" : "Queue.A",
+    "selector" : "",
+    "enabled" : true,
+    "createdAt" : 1781111600.354412200
+  }, {
+    "id" : 2,
+    "sourceTopic" : "Topic.X",
+    "targetQueue" : "Queue.B",
+    "selector" : "importance = 'critical'",
+    "enabled" : true,
+    "createdAt" : 1781111770.975269300
+  } ]
+}

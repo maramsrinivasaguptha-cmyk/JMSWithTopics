@@ -1,0 +1,22 @@
+# Tasks: TIBCO EMS Style JMS Service
+
+- [x] Initialize project files
+  - [x] Create `pom.xml` with Spring Boot 3.x and Artemis dependencies
+  - [x] Setup Maven Wrapper files for convenient building
+- [x] Implement Backend Messaging Architecture
+  - [x] Create Main application entrypoint `JmsServiceApplication.java`
+  - [x] Create `EmbeddedJmsConfig.java` for embedded ActiveMQ Artemis setup
+  - [x] Create Models (`Destination.java`, `JmsBridge.java`, `MessageLog.java`)
+  - [x] Create `EmsConfigRepository.java` for JSON file persistence of queues, topics, and pairings
+  - [x] Create `JmsDestinationService.java` for dynamic queue/topic control and browser-based statistics
+  - [x] Create `JmsBridgeService.java` dynamic bridging router utilizing Spring message listener containers and selectors
+  - [x] Create `JmsApiController.java` for REST controllers and real-time SSE stream
+- [x] Create Application Configurations
+  - [x] Create `application.properties` with port, logging, and Artemis parameters
+- [x] Implement Premium Frontend Console
+  - [x] Create HTML structure (`index.html`) with interactive panels
+  - [x] Create styles (`styles.css`) for high-end glassmorphism dashboard
+  - [x] Create controller script (`app.js`) supporting visual topology, SSE live updates, and route path animations
+- [x] Verify System
+  - [x] Verify compiling, packaging, and launching via Maven
+  - [x] Verify functionality (queues/topics, selector bridging, metrics, browsing, and live topology)
