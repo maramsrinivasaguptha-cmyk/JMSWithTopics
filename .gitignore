@@ -1,0 +1,32 @@
+# Target directory (Maven build output)
+target/
+
+# IDE files and settings
+.idea/
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+.factorypath
+.vscode/
+
+# Maven wrapper
+# Keep the wrapper files tracked, but ignore run-time wrapper configs if any
+# (Note: we don't ignore .mvn/wrapper/maven-wrapper.jar if it's checked in)
+
+# Log files
+*.log
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
