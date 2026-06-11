@@ -3,13 +3,16 @@ package com.ems.jmsservice.controller;
 import com.ems.jmsservice.model.Destination;
 import com.ems.jmsservice.model.JmsBridge;
 import com.ems.jmsservice.model.MessageLog;
-import com.ems.jmsservice.repository.EmsConfigRepository;
+import com.ems.jmsservice.repository.DestinationRepository;
+import com.ems.jmsservice.repository.JmsBridgeRepository;
+import com.ems.jmsservice.repository.MessageLogRepository;
 import com.ems.jmsservice.service.EmsEventBroadcaster;
 import com.ems.jmsservice.service.JmsBridgeService;
 import com.ems.jmsservice.service.JmsDestinationService;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +28,9 @@ public class JmsApiController {
 
     private final JmsDestinationService destinationService;
     private final JmsBridgeService bridgeService;
-    private final EmsConfigRepository repository;
+    private final DestinationRepository destinationRepository;
+    private final JmsBridgeRepository jmsBridgeRepository;
+    private final MessageLogRepository messageLogRepository;
     private final EmsEventBroadcaster eventBroadcaster;
 
     @Value("${spring.artemis.embedded.port:61616}")
@@ -37,11 +42,15 @@ public class JmsApiController {
     @Autowired
     public JmsApiController(JmsDestinationService destinationService,
                             JmsBridgeService bridgeService,
-                            EmsConfigRepository repository,
+                            DestinationRepository destinationRepository,
+                            JmsBridgeRepository jmsBridgeRepository,
+                            MessageLogRepository messageLogRepository,
                             EmsEventBroadcaster eventBroadcaster) {
         this.destinationService = destinationService;
         this.bridgeService = bridgeService;
-        this.repository = repository;
+        this.destinationRepository = destinationRepository;
+        this.jmsBridgeRepository = jmsBridgeRepository;
+        this.messageLogRepository = messageLogRepository;
         this.eventBroadcaster = eventBroadcaster;
     }
 
@@ -165,7 +174,8 @@ public class JmsApiController {
 
     @GetMapping("/messages/history")
     public ResponseEntity<List<MessageLog>> getHistory() {
-        return ResponseEntity.ok(repository.getMessageLogs());
+        // Limit history view to last 100 events to optimize network bandwidth
+        return ResponseEntity.ok(messageLogRepository.findLatestLogs(PageRequest.of(0, 100)));
     }
 
     // DTO Helper classes

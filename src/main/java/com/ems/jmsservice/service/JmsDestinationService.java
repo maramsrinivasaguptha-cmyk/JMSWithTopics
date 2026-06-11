@@ -2,12 +2,14 @@ package com.ems.jmsservice.service;
 
 import com.ems.jmsservice.model.Destination;
 import com.ems.jmsservice.model.MessageLog;
-import com.ems.jmsservice.repository.EmsConfigRepository;
+import com.ems.jmsservice.repository.DestinationRepository;
+import com.ems.jmsservice.repository.MessageLogRepository;
 import jakarta.jms.*;
 import jakarta.jms.Queue;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.*;
@@ -16,10 +18,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Service
+@Transactional
 public class JmsDestinationService {
 
     private final ConnectionFactory connectionFactory;
-    private final EmsConfigRepository repository;
+    private final DestinationRepository destinationRepository;
+    private final MessageLogRepository messageLogRepository;
     private final EmsEventBroadcaster eventBroadcaster;
     
     // In-memory counter for total messages published to a topic since system start
@@ -27,24 +31,24 @@ public class JmsDestinationService {
 
     @Autowired
     public JmsDestinationService(ConnectionFactory connectionFactory,
-                                 EmsConfigRepository repository,
+                                 DestinationRepository destinationRepository,
+                                 MessageLogRepository messageLogRepository,
                                  EmsEventBroadcaster eventBroadcaster) {
         this.connectionFactory = connectionFactory;
-        this.repository = repository;
+        this.destinationRepository = destinationRepository;
+        this.messageLogRepository = messageLogRepository;
         this.eventBroadcaster = eventBroadcaster;
     }
 
     public synchronized void createDestination(String name, Destination.Type type) {
         // Prevent duplicate names
-        boolean exists = repository.getDestinations().stream()
-                .anyMatch(d -> d.getName().equalsIgnoreCase(name) && d.getType() == type);
-        
+        boolean exists = destinationRepository.existsByNameIgnoreCaseAndType(name, type);
         if (exists) {
             throw new IllegalArgumentException("Destination " + name + " (" + type + ") already exists");
         }
 
         Destination dest = new Destination(name, type, Instant.now());
-        repository.addDestination(dest);
+        destinationRepository.save(dest);
         
         // Ensure connection verification works for dynamic destinations
         try (Connection connection = connectionFactory.createConnection();
@@ -63,8 +67,9 @@ public class JmsDestinationService {
     }
 
     public synchronized void deleteDestination(String name, Destination.Type type) {
-        boolean removed = repository.removeDestination(name, type);
-        if (removed) {
+        Optional<Destination> destOpt = destinationRepository.findByNameIgnoreCaseAndType(name, type);
+        if (destOpt.isPresent()) {
+            destinationRepository.deleteByNameIgnoreCaseAndType(name, type);
             if (type == Destination.Type.TOPIC) {
                 topicPublishCounters.remove(name);
             }
@@ -79,7 +84,7 @@ public class JmsDestinationService {
 
     public List<Map<String, Object>> getAllDestinationsWithStats() {
         List<Map<String, Object>> result = new ArrayList<>();
-        for (Destination d : repository.getDestinations()) {
+        for (Destination d : destinationRepository.findAll()) {
             result.add(getDestinationWithStats(d));
         }
         return result;
@@ -162,11 +167,14 @@ public class JmsDestinationService {
                         payload,
                         headers != null ? new HashMap<>(headers) : new HashMap<>()
                 );
-                repository.addMessageLog(logItem);
+                messageLogRepository.save(logItem);
                 
                 // Broadcast updates to the UI
                 eventBroadcaster.broadcast("message-published", logItem);
-                eventBroadcaster.broadcast("stats-updated", getDestinationWithStats(new Destination(name, type, Instant.now())));
+                
+                Destination destObj = destinationRepository.findByNameIgnoreCaseAndType(name, type)
+                        .orElse(new Destination(name, type, Instant.now()));
+                eventBroadcaster.broadcast("stats-updated", getDestinationWithStats(destObj));
             }
         } catch (Exception e) {
             log.error("Failed to send message to " + name, e);
@@ -250,10 +258,13 @@ public class JmsDestinationService {
                         payload,
                         headersMap
                 );
-                repository.addMessageLog(logItem);
+                messageLogRepository.save(logItem);
 
                 eventBroadcaster.broadcast("message-consumed", logItem);
-                eventBroadcaster.broadcast("stats-updated", getDestinationWithStats(new Destination(queueName, Destination.Type.QUEUE, Instant.now())));
+                
+                Destination destObj = destinationRepository.findByNameIgnoreCaseAndType(queueName, Destination.Type.QUEUE)
+                        .orElse(new Destination(queueName, Destination.Type.QUEUE, Instant.now()));
+                eventBroadcaster.broadcast("stats-updated", getDestinationWithStats(destObj));
 
                 return result;
             }

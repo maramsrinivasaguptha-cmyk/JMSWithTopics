@@ -3,7 +3,9 @@ package com.ems.jmsservice.service;
 import com.ems.jmsservice.model.Destination;
 import com.ems.jmsservice.model.JmsBridge;
 import com.ems.jmsservice.model.MessageLog;
-import com.ems.jmsservice.repository.EmsConfigRepository;
+import com.ems.jmsservice.repository.DestinationRepository;
+import com.ems.jmsservice.repository.JmsBridgeRepository;
+import com.ems.jmsservice.repository.MessageLogRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.jms.*;
@@ -13,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.jms.listener.DefaultMessageListenerContainer;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.*;
@@ -20,10 +23,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
+@Transactional
 public class JmsBridgeService {
 
     private final ConnectionFactory connectionFactory;
-    private final EmsConfigRepository repository;
+    private final JmsBridgeRepository jmsBridgeRepository;
+    private final DestinationRepository destinationRepository;
+    private final MessageLogRepository messageLogRepository;
     private final EmsEventBroadcaster eventBroadcaster;
     private final JmsDestinationService destinationService;
 
@@ -32,19 +38,23 @@ public class JmsBridgeService {
 
     @Autowired
     public JmsBridgeService(ConnectionFactory connectionFactory,
-                            EmsConfigRepository repository,
+                            JmsBridgeRepository jmsBridgeRepository,
+                            DestinationRepository destinationRepository,
+                            MessageLogRepository messageLogRepository,
                             EmsEventBroadcaster eventBroadcaster,
                             @Lazy JmsDestinationService destinationService) {
         this.connectionFactory = connectionFactory;
-        this.repository = repository;
+        this.jmsBridgeRepository = jmsBridgeRepository;
+        this.destinationRepository = destinationRepository;
+        this.messageLogRepository = messageLogRepository;
         this.eventBroadcaster = eventBroadcaster;
         this.destinationService = destinationService;
     }
 
     @PostConstruct
     public void startAllActiveBridges() {
-        log.info("Initializing active EMS style JMS bridges...");
-        for (JmsBridge bridge : repository.getBridges()) {
+        log.info("Initializing active EMS style JMS bridges from H2 database...");
+        for (JmsBridge bridge : jmsBridgeRepository.findAll()) {
             if (bridge.isEnabled()) {
                 try {
                     startBridgeListener(bridge);
@@ -64,11 +74,9 @@ public class JmsBridgeService {
     }
 
     public synchronized void createBridge(String sourceTopic, String targetQueue, String selector) {
-        // Validation: Verify source topic and target queue exist in repository
-        boolean sourceExists = repository.getDestinations().stream()
-                .anyMatch(d -> d.getName().equalsIgnoreCase(sourceTopic) && d.getType() == Destination.Type.TOPIC);
-        boolean targetExists = repository.getDestinations().stream()
-                .anyMatch(d -> d.getName().equalsIgnoreCase(targetQueue) && d.getType() == Destination.Type.QUEUE);
+        // Validation: Verify source topic and target queue exist in database
+        boolean sourceExists = destinationRepository.existsByNameIgnoreCaseAndType(sourceTopic, Destination.Type.TOPIC);
+        boolean targetExists = destinationRepository.existsByNameIgnoreCaseAndType(targetQueue, Destination.Type.QUEUE);
 
         if (!sourceExists) {
             throw new IllegalArgumentException("Source topic '" + sourceTopic + "' does not exist");
@@ -77,23 +85,17 @@ public class JmsBridgeService {
             throw new IllegalArgumentException("Target queue '" + targetQueue + "' does not exist");
         }
 
-        // Generate ID
-        long id = repository.getBridges().stream()
-                .mapToLong(JmsBridge::getId)
-                .max()
-                .orElse(0L) + 1L;
+        JmsBridge bridge = new JmsBridge(null, sourceTopic, targetQueue, selector, true, Instant.now());
+        JmsBridge savedBridge = jmsBridgeRepository.save(bridge);
 
-        JmsBridge bridge = new JmsBridge(id, sourceTopic, targetQueue, selector, true, Instant.now());
-        repository.addBridge(bridge);
-
-        startBridgeListener(bridge);
-        eventBroadcaster.broadcast("bridge-created", bridge);
+        startBridgeListener(savedBridge);
+        eventBroadcaster.broadcast("bridge-created", savedBridge);
     }
 
     public synchronized void deleteBridge(Long id) {
         stopBridgeListener(id);
-        boolean removed = repository.removeBridge(id);
-        if (removed) {
+        if (jmsBridgeRepository.existsById(id)) {
+            jmsBridgeRepository.deleteById(id);
             Map<String, Object> payload = new HashMap<>();
             payload.put("id", id);
             eventBroadcaster.broadcast("bridge-deleted", payload);
@@ -103,14 +105,15 @@ public class JmsBridgeService {
     }
 
     public synchronized void toggleBridge(Long id) {
-        JmsBridge bridge = repository.getBridgeById(id);
-        if (bridge == null) {
+        Optional<JmsBridge> bridgeOpt = jmsBridgeRepository.findById(id);
+        if (bridgeOpt.isEmpty()) {
             throw new IllegalArgumentException("Bridge with ID " + id + " not found");
         }
 
+        JmsBridge bridge = bridgeOpt.get();
         boolean nextState = !bridge.isEnabled();
         bridge.setEnabled(nextState);
-        repository.saveConfig();
+        jmsBridgeRepository.save(bridge);
 
         if (nextState) {
             startBridgeListener(bridge);
@@ -122,7 +125,7 @@ public class JmsBridgeService {
     }
 
     public List<JmsBridge> getAllBridges() {
-        return repository.getBridges();
+        return jmsBridgeRepository.findAll();
     }
 
     private void startBridgeListener(JmsBridge bridge) {
@@ -215,7 +218,7 @@ public class JmsBridgeService {
                         payload,
                         headers
                 );
-                repository.addMessageLog(logItem);
+                messageLogRepository.save(logItem);
 
                 // Broadast events to the Web Console UI
                 eventBroadcaster.broadcast("message-bridged", logItem);
