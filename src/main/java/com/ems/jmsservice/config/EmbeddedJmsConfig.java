@@ -8,6 +8,7 @@ import org.springframework.jms.annotation.EnableJms;
 import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
 import org.springframework.boot.autoconfigure.jms.DefaultJmsListenerContainerFactoryConfigurer;
 import jakarta.jms.ConnectionFactory;
+import org.apache.activemq.artemis.core.remoting.impl.invm.InVMRegistry;
 
 @Configuration
 @EnableJms
@@ -23,8 +24,8 @@ public class EmbeddedJmsConfig {
     public ArtemisConfigurationCustomizer artemisConfigurationCustomizer() {
         return configuration -> {
             try {
-                // Configure in-vm acceptor for secure local-only message passing inside the JVM
-                configuration.addAcceptorConfiguration("in-vm", "vm://0");
+                // Clear any stale In-VM acceptors from previous runs (fixes DevTools restart collision)
+                InVMRegistry.instance.clear();
                 
                 // If TCP is enabled, configure a TCP acceptor to allow external JMS client connections
                 if (tcpEnabled) {

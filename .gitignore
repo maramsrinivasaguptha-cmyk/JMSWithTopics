@@ -30,3 +30,5 @@ Desktop.ini
 *.bak
 *.swp
 *~
+data/emsdb.mv.db
+data/emsdb.trace.db
